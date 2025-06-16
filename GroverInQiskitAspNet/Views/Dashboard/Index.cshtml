@@ -1,0 +1,91 @@
+﻿@model DashboardViewModel
+
+@{
+    ViewBag.Title = "Dashboard";
+}
+
+<h2>Grover's Algorithm Dashboard</h2>
+
+<div class="mb-4">
+  <p>Upload a CSV file containing run parameters for Grover's algorithm.</p>
+  <form asp-action="Index" method="post" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    <div class="mb-3">
+      <input type="file" name="csvFile" class="form-control" />
+    </div>
+    <button type="submit" class="btn btn-success">Run Batch</button>
+  </form>
+</div>
+
+@if (Model.ErrorMessages != null && Model.ErrorMessages.Any()) {
+  <div class="alert alert-danger">
+    <ul>
+      @foreach(var err in Model.ErrorMessages) {
+        <li>@err</li>
+      }
+    </ul>
+  </div>
+}
+
+@if (Model.Results != null && Model.Results.Any()) {
+  <h3>Results:</h3>
+  @for (int i = 0; i < Model.Results.Count; i++)
+  {
+    var result = Model.Results[i];
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Marked state(s): @result.MarkedStates</h5>
+        <p class="card-text">
+          Backend: <strong>@result.BackendName</strong> &nbsp; | &nbsp;
+          Shots: <strong>@result.Shots</strong> &nbsp; | &nbsp;
+          Iterations: <strong>@(result.Iterations ?? 0)</strong>
+        </p>
+        <div class="row">
+          <div class="col-md-6">
+            <h6>Counts:</h6>
+            <table class="table table-sm">
+              <thead><tr><th>State</th><th>Count</th></tr></thead>
+              <tbody>
+                @foreach (var kvp in result.Counts.OrderBy(kvp => kvp.Key)) {
+                  <tr><td>@kvp.Key</td><td>@kvp.Value</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="col-md-6">
+            @if (!string.IsNullOrEmpty(result.HistogramBase64)) {
+              <img class="img-fluid" src="data:image/png;base64,@result.HistogramBase64" alt="Histogram" />
+            }
+            <canvas id="chart@(i)" width="400" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+}
+
+@section Scripts {
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  @for(int j = 0; j < Model.Results.Count; j++)
+  {
+    var res = Model.Results[j];
+    <script>
+      // Chart generation for result j
+      var ctx = document.getElementById('chart' + @j).getContext('2d');
+      var labels = [@string.Join(",", res.Counts.OrderBy(kvp => kvp.Key).Select(kvp => "\"" + kvp.Key + "\""))];
+      var data = [@string.Join(",", res.Counts.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value))];
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ label: 'Counts', data: data, backgroundColor: 'rgba(54,162,235,0.5)' }]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Count' } }
+          }
+        }
+      });
+    </script>
+  }
+}
